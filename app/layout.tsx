@@ -9,8 +9,9 @@ import { baseUrl, createMetadata } from "@/utils/metadata";
 import Chatbot from "@/components/ui/chatbot";
 import { PrivacyPolicyBox } from "@/components/privacy-policy";
 import { SearchRootProvider } from "./searchRootProvider";
-import "./global.css";
-import "katex/dist/katex.css";
+import { Body } from "./layout.client";
+import { GraniteBanner } from "@/components/ui/granite-banner";
+
 
 export const metadata = createMetadata({
   title: {
@@ -38,11 +39,14 @@ export default function Layout({ children }: { children: ReactNode }) {
     >
       <PHProvider>
         <body className="flex min-h-screen flex-col">
-          <SearchRootProvider>{children}</SearchRootProvider>
-          <Chatbot />
-          <div id="privacy-banner-root" className="relative">
-            <PrivacyPolicyBox />
-          </div>
+        <GraniteBanner />
+          <Body>
+            <SearchRootProvider>{children}</SearchRootProvider>
+            <Chatbot />
+            <div id="privacy-banner-root" className="relative">
+              <PrivacyPolicyBox />
+            </div>
+          </Body>
         </body>
       </PHProvider>
     </html>

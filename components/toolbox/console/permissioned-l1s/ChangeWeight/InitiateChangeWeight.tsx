@@ -7,9 +7,10 @@ import SelectValidationID, { ValidationSelection } from '@/components/toolbox/co
 import { getValidatorWeight } from '@/components/toolbox/coreViem/hooks/getValidatorWeight';
 import { validateStakePercentage } from '@/components/toolbox/coreViem/hooks/getTotalStake';
 import validatorManagerAbi from '@/contracts/icm-contracts/compiled/ValidatorManager.json';
-import { AlertCircle } from 'lucide-react';
 import { Success } from '@/components/toolbox/components/Success';
+import { Alert } from '@/components/toolbox/components/Alert';
 import { MultisigOption } from '@/components/toolbox/components/MultisigOption';
+import useConsoleNotifications from '@/hooks/useConsoleNotifications';
 
 interface InitiateChangeWeightProps {
   subnetId: string;
@@ -43,7 +44,7 @@ const InitiateChangeWeight: React.FC<InitiateChangeWeightProps> = ({
 }) => {
   const { coreWalletClient, publicClient } = useWalletStore();
   const viemChain = useViemChainStore();
-
+  const { notify } = useConsoleNotifications();
   const [validation, setValidation] = useState<ValidationSelection>({
     validationId: initialValidationId || '',
     nodeId: initialNodeId || ''
@@ -69,7 +70,7 @@ const InitiateChangeWeight: React.FC<InitiateChangeWeightProps> = ({
     setErrorState(null);
     setTxSuccess(null);
 
-    if (!coreWalletClient) {
+    if (!coreWalletClient || !coreWalletClient.account) {
       setErrorState("Core wallet not found");
       return;
     }
@@ -125,7 +126,7 @@ const InitiateChangeWeight: React.FC<InitiateChangeWeightProps> = ({
       }
 
       const weightBigInt = BigInt(weight);
-      const changeWeightTx = await coreWalletClient.writeContract({
+      const writeContractPromise = coreWalletClient.writeContract({
         address: validatorManagerAddress as `0x${string}`,
         abi: validatorManagerAbi.abi,
         functionName: 'initiateValidatorWeightUpdate',
@@ -133,21 +134,26 @@ const InitiateChangeWeight: React.FC<InitiateChangeWeightProps> = ({
         chain: viemChain,
         account: coreWalletClient.account,
       });
+      notify({
+        type: 'call',
+        name: 'Initiate Validator Weight Update'
+      }, writeContractPromise, viemChain ?? undefined);
 
       // Wait for transaction receipt to check if it was successful
+      const hash = await writeContractPromise;
       const receipt = await publicClient.waitForTransactionReceipt({
-        hash: changeWeightTx,
+        hash
       });
 
       if (receipt.status === 'reverted') {
-        setErrorState(`Transaction reverted. Hash: ${changeWeightTx}`);
-        onError(`Transaction reverted. Hash: ${changeWeightTx}`);
+        setErrorState(`Transaction reverted. Hash: ${hash}`);
+        onError(`Transaction reverted. Hash: ${hash}`);
         return;
       }
 
-      setTxSuccess(`Transaction successful! Hash: ${changeWeightTx}`);
+      setTxSuccess(`Transaction successful! Hash: ${hash}`);
       onSuccess({
-        txHash: changeWeightTx,
+        txHash: hash,
         nodeId: validation.nodeId,
         validationId: validation.validationId,
         weight: weight,
@@ -263,12 +269,7 @@ const InitiateChangeWeight: React.FC<InitiateChangeWeightProps> = ({
       )}
 
       {error && (
-        <div className="p-3 rounded-md bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm">
-          <div className="flex items-center">
-            <AlertCircle className="h-4 w-4 text-red-500 mr-2 flex-shrink-0" />
-            <span>{error}</span>
-          </div>
-        </div>
+        <Alert variant="error">{error}</Alert>
       )}
 
       {txSuccess && (

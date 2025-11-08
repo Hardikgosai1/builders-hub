@@ -29,7 +29,8 @@ import {
   SquareMinus,
   SquarePlus,
   HandCoins,
-  ExternalLink
+  ExternalLink,
+  BookKey
 } from "lucide-react";
 
 import {
@@ -66,6 +67,11 @@ const data = {
       title: "Primary Network",
       icon: Network,
       items: [
+        {
+          title: "Data API Keys",
+          url: "/console/utilities/data-api-keys",
+          icon: BookKey,
+        },
         {
           title: "Node Setup",
           url: "/console/primary-network/node-setup",
@@ -124,7 +130,6 @@ const data = {
         },
       ],
     },
-
     {
       title: "Free Testnet Infrastructure",
       icon: Box,
@@ -138,7 +143,6 @@ const data = {
           title: "ICM Relayer",
           url: "/console/testnet-infra/icm-relayer",
           icon: Layers,
-          comingSoon: true,
         },
       ],
     },
@@ -281,10 +285,20 @@ const data = {
           icon: Wrench,
         },
         {
+          title: "Transfer Proxy Admin Ownership",
+          url: "/console/utilities/transfer-proxy-admin",
+          icon: Wrench,
+        },
+        {
           title: "Migrate VMC From V1 to V2",
           url: "/console/utilities/vmcMigrateFromV1",
           icon: Wrench,
         },
+        {
+          title: "Revert PoA Manager",
+          url: "/console/utilities/revert-poa-manager",
+          icon: Wrench,
+        }
       ],
     },
   ],
@@ -341,7 +355,7 @@ export function ConsoleSidebar({
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.items.map((item) => {
-                  const isActive = pathname === item.url;
+                  const isActive = pathname === item.url || pathname.startsWith(item.url + '/');
                   const isComingSoon = 'comingSoon' in item && (item as any).comingSoon;
                   return (
                     <SidebarMenuItem key={item.title}>

@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useWalletStore } from '@/components/toolbox/stores/walletStore';
 import { Button } from '@/components/toolbox/components/Button';
 import { Input } from '@/components/toolbox/components/Input';
-import { AlertCircle } from 'lucide-react';
 import { Success } from '@/components/toolbox/components/Success';
-import { useAvaCloudSDK } from '@/components/toolbox/stores/useAvaCloudSDK';
+import { Alert } from '@/components/toolbox/components/Alert';
+import { useAvalancheSDKChainkit } from '@/components/toolbox/stores/useAvalancheSDKChainkit';
+import useConsoleNotifications from '@/hooks/useConsoleNotifications';
 
 interface SubmitPChainTxRemovalProps {
   subnetIdL1: string;
@@ -27,7 +28,8 @@ const SubmitPChainTxRemoval: React.FC<SubmitPChainTxRemovalProps> = ({
   onError,
 }) => {
   const { coreWalletClient, pChainAddress, publicClient } = useWalletStore();
-  const { aggregateSignature } = useAvaCloudSDK();
+  const { aggregateSignature } = useAvalancheSDKChainkit();
+  const { notify } = useConsoleNotifications();
   const [evmTxHash, setEvmTxHash] = useState(initialEvmTxHash || '');
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setErrorState] = useState<string | null>(null);
@@ -275,19 +277,25 @@ const SubmitPChainTxRemoval: React.FC<SubmitPChainTxRemovalProps> = ({
     setIsProcessing(true);
     try {
       // Step 1: Sign the warp message
-      const { signedMessage } = await aggregateSignature({
+      const aggregateSignaturePromise = aggregateSignature({
         message: unsignedWarpMessage,
         signingSubnetId: signingSubnetId || subnetIdL1,
         quorumPercentage: 67,
       });
+      notify({
+        type: 'local',
+        name: 'Aggregate Signatures'
+      }, aggregateSignaturePromise);
+      const { signedMessage } = await aggregateSignaturePromise;
 
       setSignedWarpMessage(signedMessage);
 
       // Step 2: Submit to P-Chain
-      const pChainTxId = await coreWalletClient.setL1ValidatorWeight({
-        pChainAddress: pChainAddress!,
+      const pChainTxIdPromise = coreWalletClient.setL1ValidatorWeight({
         signedWarpMessage: signedMessage,
       });
+      notify('setL1ValidatorWeight', pChainTxIdPromise);
+      const pChainTxId = await pChainTxIdPromise;
 
       setTxSuccess(`P-Chain transaction successful! ID: ${pChainTxId}`);
       onSuccess(pChainTxId, eventData);
@@ -346,12 +354,7 @@ const SubmitPChainTxRemoval: React.FC<SubmitPChainTxRemovalProps> = ({
       </Button>
 
       {error && (
-        <div className="p-3 rounded-md bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm">
-          <div className="flex items-center">
-            <AlertCircle className="h-4 w-4 text-red-500 mr-2 flex-shrink-0" />
-            <span>{error}</span>
-          </div>
-        </div>
+        <Alert variant="error">{error}</Alert>
       )}
 
       {txSuccess && (

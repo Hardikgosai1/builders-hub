@@ -4,15 +4,16 @@ import { useState } from "react";
 import { useWalletStore } from "@/components/toolbox/stores/walletStore";
 import { useViemChainStore } from "@/components/toolbox/stores/toolboxStore";
 import { Button } from "@/components/toolbox/components/Button";
-import { Container } from "@/components/toolbox/components/Container";
 import { EVMAddressInput } from "@/components/toolbox/components/EVMAddressInput";
 import { AllowlistComponent } from "@/components/toolbox/components/AllowListComponents";
 import rewardManagerAbi from "@/contracts/precompiles/RewardManager.json";
 import { CheckCircle, Edit, Users, Wallet } from "lucide-react";
 import { cn } from "@/components/toolbox/lib/utils";
 import { CheckPrecompile } from "@/components/toolbox/components/CheckPrecompile";
-import { CheckWalletRequirements } from "@/components/toolbox/components/CheckWalletRequirements";
 import { WalletRequirementsConfigKey } from "@/components/toolbox/hooks/useWalletRequirements";
+import { BaseConsoleToolProps, ConsoleToolMetadata, withConsoleToolMetadata } from "../../components/WithConsoleToolMetadata";
+import { useConnectedWallet } from "@/components/toolbox/contexts/ConnectedWalletContext";
+import { generateConsoleToolGitHubUrl } from "@/components/toolbox/utils/github-url";
 
 // Default Reward Manager address
 const DEFAULT_REWARD_MANAGER_ADDRESS =
@@ -45,8 +46,18 @@ const StatusBadge = ({ status, loadingText, isLoading }: StatusBadgeProps) => {
   );
 };
 
-export default function RewardManager() {
-  const { coreWalletClient, publicClient, walletEVMAddress } = useWalletStore();
+const metadata: ConsoleToolMetadata = {
+  title: "Reward Manager",
+  description: "Manage reward settings for the network including fee recipients and reward addresses",
+  toolRequirements: [
+    WalletRequirementsConfigKey.EVMChainBalance
+  ],
+  githubUrl: generateConsoleToolGitHubUrl(import.meta.url)
+};
+
+function RewardManager({ onSuccess }: BaseConsoleToolProps) {
+  const { publicClient, walletEVMAddress } = useWalletStore();
+  const { coreWalletClient } = useConnectedWallet();
   const viemChain = useViemChainStore();
 
   // Fee config state
@@ -62,7 +73,7 @@ export default function RewardManager() {
   const [currentRewardAddress, setCurrentRewardAddress] = useState<string | null>(null);
 
   const handleAllowFeeRecipients = async () => {
-    if (!walletEVMAddress || !coreWalletClient) {
+    if (!coreWalletClient.account) {
       throw new Error("Please connect your wallet first");
     }
 
@@ -74,7 +85,7 @@ export default function RewardManager() {
         address: DEFAULT_REWARD_MANAGER_ADDRESS as `0x${string}`,
         abi: rewardManagerAbi.abi,
         functionName: "allowFeeRecipients",
-        account: walletEVMAddress as `0x${string}`,
+        account: coreWalletClient.account,
         chain: viemChain,
       });
 
@@ -105,7 +116,7 @@ export default function RewardManager() {
   };
 
   const handleDisableRewards = async () => {
-    if (!walletEVMAddress || !coreWalletClient) {
+    if (!coreWalletClient.account) {
       throw new Error("Please connect your wallet first");
     }
 
@@ -117,7 +128,7 @@ export default function RewardManager() {
         address: DEFAULT_REWARD_MANAGER_ADDRESS as `0x${string}`,
         abi: rewardManagerAbi.abi,
         functionName: "disableRewards",
-        account: walletEVMAddress as `0x${string}`,
+        account: coreWalletClient.account,
         chain: viemChain,
       });
 
@@ -148,7 +159,7 @@ export default function RewardManager() {
   };
 
   const handleSetRewardAddress = async () => {
-    if (!walletEVMAddress || !coreWalletClient) {
+    if (!coreWalletClient.account) {
       throw new Error("Please connect your wallet first");
     }
 
@@ -165,7 +176,7 @@ export default function RewardManager() {
         abi: rewardManagerAbi.abi,
         functionName: "setRewardAddress",
         args: [rewardAddress],
-        account: walletEVMAddress as `0x${string}`,
+        account: coreWalletClient.account,
         chain: viemChain,
       });
 
@@ -199,17 +210,11 @@ export default function RewardManager() {
   );
 
   return (
-    <CheckWalletRequirements configKey={[
-      WalletRequirementsConfigKey.EVMChainBalance
-    ]}>
-      <CheckPrecompile
+    <CheckPrecompile
         configKey="rewardManagerConfig"
         precompileName="Reward Manager"
       >
-        <Container
-          title="Reward Manager"
-          description="Manage reward settings for the network"
-        >
+        <>
           <div className="space-y-4">
             <div className="space-y-4 p-4">
               {/* Fee Recipients Section */}
@@ -358,13 +363,14 @@ export default function RewardManager() {
               </div>
             </div>
           </div>
-        </Container>
+        </>
 
         <AllowlistComponent
           precompileAddress={DEFAULT_REWARD_MANAGER_ADDRESS}
           precompileType="Reward Manager"
         />
       </CheckPrecompile>
-    </CheckWalletRequirements>
   );
 }
+
+export default withConsoleToolMetadata(RewardManager, metadata);

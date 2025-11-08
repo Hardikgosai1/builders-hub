@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
-import { getActiveRulesAt } from "../coreViem/methods/getActiveRulesAt";
 import { useWalletStore } from "../stores/walletStore";
+import { useViemChainStore } from "../stores/toolboxStore";
+import { Alert } from "./Alert";
+import { getActiveRulesAt } from "../coreViem";
+import { createPublicClient, http } from "viem";
 
 type PrecompileConfigKey =
     | "warpConfig"
@@ -33,7 +36,8 @@ export const CheckPrecompile = ({
     docsLink,
     docsLinkText = "Learn how to activate this precompile"
 }: CheckPrecompileProps) => {
-    const { coreWalletClient } = useWalletStore();
+    const { walletChainId } = useWalletStore();
+    const viemChain = useViemChainStore();
     const [state, setState] = useState<PrecompileState>({
         isActive: false,
         isLoading: false,
@@ -41,14 +45,23 @@ export const CheckPrecompile = ({
     });
 
     useEffect(() => {
-        if (!coreWalletClient) return;
+        if (!viemChain?.rpcUrls?.default?.http?.[0]) return;
 
         const checkPrecompileStatus = async () => {
             setState(prev => ({ ...prev, isLoading: true, error: null }));
 
             try {
-                const data = await getActiveRulesAt(coreWalletClient);
-                const isActive = Boolean(data.precompiles?.[configKey]?.timestamp);
+                // Create a dedicated publicClient using the chain's RPC URL
+                // This is necessary because Core wallet provider doesn't support eth_getActiveRulesAt
+                const rpcPublicClient = createPublicClient({
+                    transport: http(viemChain.rpcUrls.default.http[0]),
+                    chain: viemChain as any,
+                });
+
+                const data = await getActiveRulesAt(rpcPublicClient);
+                // Treat presence of a timestamp (including 0) as active.
+                // Some networks may report 0 when enabled at genesis.
+                const isActive = (data.precompiles?.[configKey]?.timestamp !== undefined);
                 setState({ isLoading: false, isActive, error: null });
             } catch (err) {
                 console.error('Error checking precompile:', err);
@@ -61,7 +74,7 @@ export const CheckPrecompile = ({
         };
 
         checkPrecompileStatus();
-    }, [coreWalletClient, configKey]);
+    }, [viemChain, configKey, walletChainId]);
 
     if (state.isLoading) {
         return (
@@ -78,20 +91,16 @@ export const CheckPrecompile = ({
 
     if (state.error) {
         return (
-            <div className="p-4 border border-red-200 rounded-md bg-red-50 dark:bg-red-900/20 dark:border-red-800">
-                <p className="text-red-700 dark:text-red-300">
-                    Error checking {precompileName}: {state.error}
-                </p>
-            </div>
+            <Alert variant="error">
+                Error checking {precompileName}: {state.error}
+            </Alert>
         );
     }
 
     if (!state.isActive) {
         return (
-            <div className="p-4 border border-yellow-200 rounded-md bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-800">
-                <p className="text-yellow-700 dark:text-yellow-300">
-                    {errorMessage || `${precompileName} is not available on this chain.`}
-                </p>
+            <Alert variant="warning">
+                {errorMessage || `${precompileName} is not available on this chain.`}
                 {docsLink && (
                     <a
                         href={docsLink}
@@ -102,7 +111,7 @@ export const CheckPrecompile = ({
                         {docsLinkText} →
                     </a>
                 )}
-            </div>
+            </Alert>
         );
     }
 

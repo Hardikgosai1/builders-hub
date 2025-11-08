@@ -9,6 +9,7 @@ interface L1Chain {
   chainLogoURI: string;
   subnetId: string;
   slug: string;
+  color?: string;
 }
 
 export async function generateMetadata({
@@ -22,9 +23,30 @@ export async function generateMetadata({
 
   if (!currentChain) { return notFound(); }
 
+  const title = `${currentChain.chainName} L1 Metrics`;
+  const description = `Track ${currentChain.chainName} L1 activity with real-time metrics including active addresses, transactions, gas usage, fees, and network performance data.`;
+
+  const imageParams = new URLSearchParams();
+  imageParams.set("title", title);
+  imageParams.set("description", description);
+
+  const image = {
+    alt: `${currentChain.chainName} L1 Metrics`,
+    url: `/api/og/stats/${slug}?${imageParams.toString()}`,
+    width: 1280,
+    height: 720,
+  };
+
   return {
-    title: `${currentChain.chainName} L1 Metrics`,
-    description: `Track ${currentChain.chainName} L1 activity with real-time metrics including active addresses, transactions, gas usage, fees, and network performance data.`,
+    title,
+    description,
+    openGraph: {
+      url: `/stats/l1/${slug}`,
+      images: image,
+    },
+    twitter: {
+      images: image,
+    },
   };
 }
 
@@ -47,6 +69,7 @@ export default async function L1Metrics({
       chainId={currentChain.chainId}
       chainName={currentChain.chainName}
       description={`Real-time insights into ${currentChain.chainName} L1 activity and network usage`}
+      themeColor={currentChain.color || "#E57373"}
     />
   );
 }

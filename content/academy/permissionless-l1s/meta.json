@@ -1,0 +1,13 @@
+{
+    "title": "Permissionless L1s",
+    "icon": "UserPen",
+    "root": true,
+    "pages": [
+        "index",
+        "---Review---",
+        "...01-review",
+        "---Proof of Stake---",
+        "...02-proof-of-stake",
+        "---More coming soon...---"
+    ]
+}

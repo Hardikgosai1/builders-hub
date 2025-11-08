@@ -6,12 +6,12 @@ import type { AbiEvent } from "viem"
 import { useEffect, useState } from "react"
 import ValidatorManagerABI from "@/contracts/icm-contracts/compiled/ValidatorManager.json"
 import { Button } from "@/components/toolbox/components/Button"
-import { Container } from "@/components/toolbox/components/Container"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import { getSubnetInfo } from "@/components/toolbox/coreViem/utils/glacier"
 import { EVMAddressInput } from "@/components/toolbox/components/EVMAddressInput"
-import { CheckWalletRequirements } from "@/components/toolbox/components/CheckWalletRequirements"
 import { WalletRequirementsConfigKey } from "@/components/toolbox/hooks/useWalletRequirements";
+import { BaseConsoleToolProps, ConsoleToolMetadata, withConsoleToolMetadata } from "../../../components/WithConsoleToolMetadata";
+import { generateConsoleToolGitHubUrl } from "@/components/toolbox/utils/github-url";
 
 type ViewData = {
   [key: string]: any
@@ -30,7 +30,16 @@ const serializeValue = (value: any): any => {
   return value
 }
 
-export default function ReadContract() {
+const metadata: ConsoleToolMetadata = {
+  title: "Read Contract",
+  description: "Read and view contract data from the ValidatorManager",
+  toolRequirements: [
+    WalletRequirementsConfigKey.CoreWalletConnected
+  ],
+  githubUrl: generateConsoleToolGitHubUrl(import.meta.url)
+}
+
+function ReadContract({ onSuccess }: BaseConsoleToolProps) {
   const [criticalError, setCriticalError] = useState<Error | null>(null);
   const [proxyAddress, setProxyAddress] = useState<string>("");
   const [viewData, setViewData] = useState<ViewData>({})
@@ -138,14 +147,7 @@ export default function ReadContract() {
   }
 
   return (
-
-    <CheckWalletRequirements configKey={[
-      WalletRequirementsConfigKey.CoreWalletConnected,
-    ]}>
-      <Container
-        title="Read Proxy Contract"
-        description="This will read the data from the ValidatorManager contract."
-      >
+    <div>
         <div className="space-y-4">
           <EVMAddressInput
             label="Proxy Address"
@@ -167,7 +169,7 @@ export default function ReadContract() {
         {Object.keys(viewData).length > 0 && (
           <div className="mt-6">
             <h3 className="text-base font-semibold mb-3 text-zinc-800 dark:text-zinc-200">Contract Data</h3>
-            <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800 shadow-sm">
+            <div className="rounded-lg">
               <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800">
                 <thead className="bg-zinc-50 dark:bg-zinc-800/50">
                   <tr>
@@ -257,8 +259,9 @@ export default function ReadContract() {
             </div>
           </div>
         )}
-      </Container>
-    </CheckWalletRequirements>
+    </div>
   )
 }
+
+export default withConsoleToolMetadata(ReadContract, metadata)
 

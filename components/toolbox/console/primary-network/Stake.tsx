@@ -1,21 +1,22 @@
 "use client";
 
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Button } from '@/components/toolbox/components/Button'
 import { Input } from '@/components/toolbox/components/Input'
-import { Container } from '@/components/toolbox/components/Container'
-import { CheckWalletRequirements } from '@/components/toolbox/components/CheckWalletRequirements'
 import { WalletRequirementsConfigKey } from '@/components/toolbox/hooks/useWalletRequirements'
+import { BaseConsoleToolProps, ConsoleToolMetadata, withConsoleToolMetadata } from '../../components/WithConsoleToolMetadata'
 import { useWalletStore } from '@/components/toolbox/stores/walletStore'
 import { Success } from '@/components/toolbox/components/Success'
 import { useWallet } from '@/components/toolbox/hooks/useWallet'
 import { prepareAddPermissionlessValidatorTxn } from '@avalanche-sdk/client/methods/wallet/pChain'
 import { sendXPTransaction } from '@avalanche-sdk/client/methods/wallet'
-import { AlertCircle } from 'lucide-react'
 import { networkIDs } from '@avalabs/avalanchejs'
 import { AddValidatorControls } from '@/components/toolbox/components/ValidatorListInput/AddValidatorControls'
 import type { ConvertToL1Validator } from '@/components/toolbox/components/ValidatorListInput'
 import { Steps, Step } from 'fumadocs-ui/components/steps'
+import useConsoleNotifications from "@/hooks/useConsoleNotifications";
+import { generateConsoleToolGitHubUrl } from "@/components/toolbox/utils/github-url";
+import { Alert } from '@/components/toolbox/components/Alert';
 
 // Network-specific constants
 const NETWORK_CONFIG = {
@@ -45,8 +46,17 @@ const MAX_END_SECONDS = 365 * 24 * 60 * 60 // 1 year
 const DEFAULT_DELEGATOR_REWARD_PERCENTAGE = "2"
 const BUFFER_MINUTES = 5
 
-export default function Stake() {
-  const { coreWalletClient, pChainAddress, isTestnet, avalancheNetworkID, walletEVMAddress } = useWalletStore()
+const metadata: ConsoleToolMetadata = {
+  title: "Stake on Primary Network",
+  description: "Stake AVAX as a validator on Avalanche's Primary Network to secure the network and earn rewards",
+  toolRequirements: [
+    WalletRequirementsConfigKey.PChainBalance
+  ],
+  githubUrl: generateConsoleToolGitHubUrl(import.meta.url)
+}
+
+function Stake({ onSuccess }: BaseConsoleToolProps) {
+  const { pChainAddress, isTestnet, avalancheNetworkID } = useWalletStore()
   const { avalancheWalletClient } = useWallet();
 
   const [validator, setValidator] = useState<ConvertToL1Validator | null>(null)
@@ -57,6 +67,8 @@ export default function Stake() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [txId, setTxId] = useState<string>("")
+
+  const { notify } = useConsoleNotifications();
 
   // Determine network configuration
   const onFuji = isTestnet === true || avalancheNetworkID === networkIDs.FujiID
@@ -90,7 +102,7 @@ export default function Stake() {
   }
 
   const validateForm = (): string | null => {
-    if (!coreWalletClient || !pChainAddress) {
+    if (!pChainAddress) {
       return 'Connect Core Wallet to get your P-Chain address'
     }
 
@@ -172,13 +184,16 @@ export default function Stake() {
         signature: validator!.nodePOP.proofOfPossession,
       })
 
-      const txResult = await sendXPTransaction(avalancheWalletClient.pChain, {
+      const stakePromise = sendXPTransaction(avalancheWalletClient.pChain, {
         tx: tx,
         chainAlias: 'P',
-      })
-      await avalancheWalletClient.waitForTxn(txResult);
-      setTxId(txResult.txHash)
+      }).then(result => result.txHash);
 
+      notify('addPermissionlessValidator', stakePromise);
+
+      const txHash = await stakePromise;
+      setTxId(txHash)
+      onSuccess?.()
     } catch (e: any) {
       setError(e.message)
     } finally {
@@ -194,11 +209,7 @@ export default function Stake() {
   }
 
   return (
-    <CheckWalletRequirements configKey={[WalletRequirementsConfigKey.PChainBalance]}>
-      <Container
-        title="Become a Validator"
-        description="Stake AVAX to become a validator on the Primary Network"
-      >
+    <>
         <div className="space-y-6">
           <Steps>
             <Step>
@@ -210,6 +221,13 @@ export default function Stake() {
                 onAddValidator={setValidator}
                 isTestnet={false}
               />
+              <Alert variant="info" className="mt-4">
+                  <strong>Note:</strong> This step queries your <code>info.getNodeID</code> endpoint at <code>127.0.0.1:9650</code>.
+                  Make sure you have an AvalancheGo node running locally before proceeding.
+                  <br />
+                  If your node runs on a remote server, replace <code>127.0.0.1</code> with your node’s public IP in the command.
+              </Alert>
+
 
               {validator && (
                 <div className="mt-4 p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg">
@@ -308,12 +326,7 @@ export default function Stake() {
 
           {/* Error Message */}
           {error && (
-            <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-              <div className="flex gap-2 items-start">
-                <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
-              </div>
-            </div>
+            <Alert variant="error">{error}</Alert>
           )}
 
           {/* Success Message */}
@@ -338,7 +351,8 @@ export default function Stake() {
             Stake {networkName} Validator
           </Button>
         </div>
-      </Container>
-    </CheckWalletRequirements>
+    </>
   )
 }
+
+export default withConsoleToolMetadata(Stake, metadata)

@@ -31,6 +31,7 @@ The address for USDC on Fuji C-Chain is [`0x5425890298aed601595a70ab815c96711a31
 For convience we have already deployed a `TokenHome` to the C-Chain for USDC with the address [`0x546526F786115af1FE7c11aa8Ac5682b8c181E3A`](https://testnet.snowtrace.io/address/0x546526F786115af1FE7c11aa8Ac5682b8c181E3A)
 
 You can use the [Core Faucet to get some USDC](https://core.app/en/tools/testnet-faucet/?subnet=c&token=usdcc) on Fuji. 
+
 ```bash
 export USDC=0x5425890298aed601595a70ab815c96711a31bc65
 export USDC_HOME_C_CHAIN=0x546526F786115af1FE7c11aa8Ac5682b8c181E3A
@@ -42,7 +43,7 @@ Set up the remote transferer contracts for transferring tokens between the C-Cha
    
 - `NativeTokenRemote` Contract on `myblockchain` 
 ```bash 
-forge create --rpc-url myblockchain --private-key $PK lib/icm-contracts/contracts/ictt/TokenRemote/NativeTokenRemote.sol:NativeTokenRemote --optimize --optimizer-runs 200 --broadcast --constructor-args "($TELEPORTER_REGISTRY_L1, $FUNDED_ADDRESS, "1", $C_CHAIN_BLOCKCHAIN_ID_HEX, $USDC_HOME_C_CHAIN, 6)" "USDC" 100000000000000000000 0
+forge create --rpc-url myblockchain --private-key $PK --broadcast --optimize --optimizer-runs 200 --constructor-args "($TELEPORTER_REGISTRY_L1, $FUNDED_ADDRESS, "1", $C_CHAIN_BLOCKCHAIN_ID_HEX, $USDC_HOME_C_CHAIN, 6)" "USDC" 100000000000000000000 0 lib/icm-contracts/contracts/ictt/TokenRemote/NativeTokenRemote.sol:NativeTokenRemote
 ```
 
 _Note: When deploying the `NativeTokenRemote` contract on the L1, ensure that the **initial amount** matches the native token amount that was minted when the blockchain was created. This ensures consistency between the native token supply and the remote token counterpart._

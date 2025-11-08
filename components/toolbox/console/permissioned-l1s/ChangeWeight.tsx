@@ -1,8 +1,7 @@
 "use client"
 import React, { useState, useMemo } from 'react';
-import { Container } from '@/components/toolbox/components/Container';
 import { Button } from '@/components/toolbox/components/Button';
-import { AlertCircle } from 'lucide-react';
+import { Alert } from '@/components/toolbox/components/Alert';
 import SelectSubnetId from '@/components/toolbox/components/SelectSubnetId';
 import { ValidatorManagerDetails } from '@/components/toolbox/components/ValidatorManagerDetails';
 import { useValidatorManagerDetails } from '@/components/toolbox/hooks/useValidatorManagerDetails';
@@ -14,10 +13,22 @@ import InitiateChangeWeight from '@/components/toolbox/console/permissioned-l1s/
 import SubmitPChainTxChangeWeight from '@/components/toolbox/console/permissioned-l1s/ChangeWeight/SubmitPChainTxChangeWeight';
 import CompleteChangeWeight from '@/components/toolbox/console/permissioned-l1s/ChangeWeight/CompleteChangeWeight';
 import { useCreateChainStore } from '@/components/toolbox/stores/createChainStore';
-import { CheckWalletRequirements } from '@/components/toolbox/components/CheckWalletRequirements';
 import { WalletRequirementsConfigKey } from '@/components/toolbox/hooks/useWalletRequirements';
+import { BaseConsoleToolProps, ConsoleToolMetadata, withConsoleToolMetadata } from '../../components/WithConsoleToolMetadata';
+import { useConnectedWallet } from '@/components/toolbox/contexts/ConnectedWalletContext';
+import { generateConsoleToolGitHubUrl } from "@/components/toolbox/utils/github-url";
 
-const ChangeWeightStateless: React.FC = () => {
+const metadata: ConsoleToolMetadata = {
+  title: "Change Consensus Weight of Validators",
+  description: "Modify a validator's consensus weight to determine their influence in the network",
+  toolRequirements: [
+    WalletRequirementsConfigKey.EVMChainBalance,
+    WalletRequirementsConfigKey.PChainBalance
+  ],
+  githubUrl: generateConsoleToolGitHubUrl(import.meta.url)
+};
+
+const ChangeWeightStateless: React.FC<BaseConsoleToolProps> = ({ onSuccess }) => {
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [globalSuccess, setGlobalSuccess] = useState<string | null>(null);
   const [isValidatorManagerDetailsExpanded, setIsValidatorManagerDetailsExpanded] = useState<boolean>(false);
@@ -28,6 +39,7 @@ const ChangeWeightStateless: React.FC = () => {
 
   // Form state
   const { walletEVMAddress } = useWalletStore();
+  const { coreWalletClient } = useConnectedWallet();
   const createChainStoreSubnetId = useCreateChainStore()(state => state.subnetId);
   const [subnetIdL1, setSubnetIdL1] = useState<string>(createChainStoreSubnetId || "");
   const [nodeId, setNodeId] = useState<string>('');
@@ -93,19 +105,10 @@ const ChangeWeightStateless: React.FC = () => {
   };
 
   return (
-    <CheckWalletRequirements configKey={[
-      WalletRequirementsConfigKey.EVMChainBalance,
-      WalletRequirementsConfigKey.PChainBalance
-    ]}>
-      <Container title="Change Consensus Weight of Validators" description="Modify a validator's consensus weight by following these steps in order. The consensus weight determines the validator's influence in the network. On average a validator will produce blocks proportional to its weight in relation to the total weight of all validators.">
+    <>
         <div className="space-y-6">
           {globalError && (
-            <div className="p-3 rounded-md bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm">
-              <div className="flex items-center">
-                <AlertCircle className="h-4 w-4 text-red-500 mr-2 flex-shrink-0" />
-                <span>Error: {globalError}</span>
-              </div>
-            </div>
+            <Alert variant="error">Error: {globalError}</Alert>
           )}
 
           <Steps>
@@ -204,6 +207,7 @@ const ChangeWeightStateless: React.FC = () => {
                 onSuccess={(message) => {
                   setGlobalSuccess(message);
                   setGlobalError(null);
+                  onSuccess?.();
                 }}
                 onError={(message) => setGlobalError(message)}
               />
@@ -223,9 +227,8 @@ const ChangeWeightStateless: React.FC = () => {
             </Button>
           )}
         </div>
-      </Container>
-    </CheckWalletRequirements>
+    </>
   );
 };
 
-export default ChangeWeightStateless;
+export default withConsoleToolMetadata(ChangeWeightStateless, metadata);

@@ -6,19 +6,32 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/toolbox/components/Button";
 import { ResultField } from "@/components/toolbox/components/ResultField";
 import ValidatorManagerABI from "@/contracts/icm-contracts/compiled/ValidatorManager.json";
-import { Container } from "@/components/toolbox/components/Container";
 import { EVMAddressInput } from "@/components/toolbox/components/EVMAddressInput";
 import SelectSubnetId from "@/components/toolbox/components/SelectSubnetId";
 import { useValidatorManagerDetails } from "@/components/toolbox/hooks/useValidatorManagerDetails";
 import { ValidatorManagerDetails } from "@/components/toolbox/components/ValidatorManagerDetails";
 import { TransactionReceipt } from "viem";
-import { AlertCircle, Info } from "lucide-react";
-import { CheckWalletRequirements } from "@/components/toolbox/components/CheckWalletRequirements";
+import { Info } from "lucide-react";
 import { WalletRequirementsConfigKey } from "@/components/toolbox/hooks/useWalletRequirements";
+import { BaseConsoleToolProps, ConsoleToolMetadata, withConsoleToolMetadata } from "../../../components/WithConsoleToolMetadata";
+import { useConnectedWallet } from "@/components/toolbox/contexts/ConnectedWalletContext";
+import useConsoleNotifications from "@/hooks/useConsoleNotifications";
+import { generateConsoleToolGitHubUrl } from "@/components/toolbox/utils/github-url";
+import { Alert } from "@/components/toolbox/components/Alert";
 
-export default function TransferOwnership() {
+const metadata: ConsoleToolMetadata = {
+    title: "Transfer Validator Manager Ownership",
+    description: "Transfer the ownership of the Validator Manager to a new address (EOA, StakingManager, or PoAManager)",
+    toolRequirements: [
+        WalletRequirementsConfigKey.EVMChainBalance
+    ],
+    githubUrl: generateConsoleToolGitHubUrl(import.meta.url)
+};
+
+function TransferOwnership({ onSuccess }: BaseConsoleToolProps) {
     const [criticalError, setCriticalError] = useState<Error | null>(null);
-    const { coreWalletClient, publicClient, walletEVMAddress } = useWalletStore();
+    const { publicClient, walletEVMAddress } = useWalletStore();
+    const { coreWalletClient } = useConnectedWallet();
     const [isTransferring, setIsTransferring] = useState(false);
     const [selectedSubnetId, setSelectedSubnetId] = useState<string>('');
     const [newOwnerAddress, setNewOwnerAddress] = useState<string>('');
@@ -42,7 +55,7 @@ export default function TransferOwnership() {
         isLoadingOwnership,
         isOwnerContract
     } = validatorManagerData;
-
+    const { notify } = useConsoleNotifications();
     // Ownership check
     const isCurrentUserOwner = contractOwner && walletEVMAddress &&
         contractOwner.toLowerCase() === walletEVMAddress.toLowerCase();
@@ -90,21 +103,26 @@ export default function TransferOwnership() {
     }, [newOwnerAddress, publicClient]);
 
     async function handleTransferOwnership() {
-        if (!coreWalletClient) {
-            setCriticalError(new Error('Core wallet not found'));
-            return;
-        }
-
         setIsTransferring(true);
+        if (!coreWalletClient.account) {
+            throw new Error('No wallet account connected');
+        }
         try {
-            const hash = await coreWalletClient.writeContract({
-                to: validatorManagerAddress,
+            const transferPromise = coreWalletClient.writeContract({
+                address: validatorManagerAddress as `0x${string}`,
                 abi: ValidatorManagerABI.abi,
                 functionName: 'transferOwnership',
                 args: [newOwnerAddress],
-                chain: viemChain,
+                account: coreWalletClient.account,
+                chain: viemChain ?? undefined,
             });
 
+            notify({
+                type: 'call',
+                name: 'Transfer Ownership'
+            }, transferPromise, viemChain ?? undefined);
+
+            const hash = await transferPromise;
             const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
             if (!receipt.status || receipt.status !== 'success') {
@@ -127,13 +145,7 @@ export default function TransferOwnership() {
         (isCurrentUserOwner || isOwnerContract || isLoadingOwnership); // Allow contract owners and loading states
 
     return (
-        <CheckWalletRequirements configKey={[
-            WalletRequirementsConfigKey.EVMChainBalance,
-        ]}>
-            <Container
-                title="Transfer Validator Manager Ownership"
-                description="This will transfer the ownership of the Validator Manager to a new address, which could be an EOA, StakingManager or PoAManager."
-            >
+        <>
                 <div className="space-y-4">
                     <SelectSubnetId
                         value={selectedSubnetId}
@@ -164,12 +176,9 @@ export default function TransferOwnership() {
 
                     {/* Minimal ownership error display */}
                     {showOwnershipError && (
-                        <div className="p-3 rounded-lg border bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200 flex items-start space-x-2">
-                            <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                            <div>
-                                <p className="text-sm">You are not the owner of this Validator Manager. Only the current owner can transfer ownership.</p>
-                            </div>
-                        </div>
+                        <Alert variant="error">
+                            You are not the owner of this Validator Manager. Only the current owner can transfer ownership.
+                        </Alert>
                     )}
 
                     <EVMAddressInput
@@ -215,8 +224,9 @@ export default function TransferOwnership() {
                         showCheck={!!receipt.transactionHash}
                     />
                 )}
-            </Container>
-        </CheckWalletRequirements>
+        </>
     );
-};
+}
+
+export default withConsoleToolMetadata(TransferOwnership, metadata);
 
